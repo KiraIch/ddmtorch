@@ -207,8 +207,6 @@ paper/                 # LaTeX technical report, references, figures
 results/               # generated CSV/JSON/NPZ outputs
 ```
 
-Personal literature and knowledge notes are kept local and are not part of this public repository.
-
 ## Limitations
 
 - **Model scope**: standard four-parameter DDM; a fixed-proportion uniform contaminant is available but its probability is not estimated. No across-trial variability (`sv`, `sz`, `st0`), full contaminant distribution, collapsing bounds, or time-varying drift.
