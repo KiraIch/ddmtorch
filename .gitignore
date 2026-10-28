@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+build/
+dist/
+.DS_Store
+paper/main.aux
+paper/main.log
+paper/main.out
+paper/main.toc
+paper/main.bbl
+paper/main.blg
+paper/main.synctex.gz
+
+# Local literature library: check publisher licenses before redistributing.
+docs/literature/pdfs/
+docs/literature/text/
+
+# Downloaded empirical data (the script fetches it on first run).
+data/

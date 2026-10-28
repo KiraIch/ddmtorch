@@ -1,0 +1,30 @@
+{
+  "n": 20000,
+  "reference": "CPU float64, k_max=512",
+  "analysis_rule": "tau >= 0.02 and reference log-density representable in float32",
+  "cpu_float32": {
+    "name": "cpu_float32_k48",
+    "n_analysis": 19918,
+    "n_underflow_ref_below_float32_tiny": 2,
+    "n_tau_below_0.02": 82,
+    "max_abs_log_error": 3.508835061438731e-05,
+    "mean_abs_log_error": 5.200680080260598e-07,
+    "p99_abs_log_error": 3.3820307166365605e-06,
+    "max_rel_density_error": 3.5087735025495124e-05,
+    "mean_rel_density_error": 5.200681108920046e-07,
+    "max_abs_log_error_including_extreme_tails": 90.44829807670922
+  },
+  "mps_float32": {
+    "name": "mps_float32_k48",
+    "n_analysis": 19918,
+    "n_underflow_ref_below_float32_tiny": 2,
+    "n_tau_below_0.02": 82,
+    "max_abs_log_error": 3.127365334876231e-05,
+    "mean_abs_log_error": 6.340902260764439e-07,
+    "p99_abs_log_error": 4.278649740676574e-06,
+    "max_rel_density_error": 3.127316433318184e-05,
+    "mean_rel_density_error": 6.34090641718018e-07,
+    "max_abs_log_error_including_extreme_tails": 90.44829807670922
+  },
+  "cpu_vs_mps_max_abs_log_error": 7.62939453125e-06
+}

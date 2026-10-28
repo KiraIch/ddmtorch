@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ddmtorch"
+version = "0.1.0"
+description = "Differentiable, GPU/MPS-accelerated drift-diffusion model estimation in PyTorch"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ChiaAn Lin" }]
+keywords = ["drift-diffusion model", "cognitive psychology", "PyTorch", "MPS", "maximum likelihood"]
+dependencies = [
+    "torch>=2.2",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "scipy>=1.10",
+    "matplotlib>=3.8",
+    "pandas>=2.0",
+    "pypdf>=5",
+    "tqdm>=4.66",
+    "pyddm>=0.9",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[project.urls]
+Homepage = "https://github.com/KiraIch/DDM_MPS"
+Repository = "https://github.com/KiraIch/DDM_MPS"
+Issues = "https://github.com/KiraIch/DDM_MPS/issues"

@@ -1,0 +1,12 @@
+name: pymc
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - pymc>=5
+      - nutpie>=0.16
+      - arviz>=0.16
+      - pandas>=2.0
+      - numpy>=1.24
