@@ -8,9 +8,9 @@ cd paper
 tectonic -X compile main.tex
 ```
 
-This produces `main.pdf` and `main.log`; BibTeX is run automatically.  Line numbers are enabled with `\linenumbers` for review; remove that command for the final camera-ready/preprint version if you prefer unnumbered lines.
+This produces `main.pdf` and `main.log`; BibTeX is run automatically.  Line numbers are disabled for the current preprint version.
 
-Author: ChiaAn Lin, Master's Program in Precision Health and Intelligent Medicine, Graduate School of Advanced Technology, National Taiwan University, Taipei, Taiwan. Correspondence: ntuhibiki@gmail.com.
+Author: ChiaAn Lin, Master Program for Health and Intelligent Medicine, National Taiwan University, Taipei, Taiwan. Correspondence: ntuhibiki@gmail.com.
 
 Before submitting to PsyArXiv:
 

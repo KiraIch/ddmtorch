@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Lin
     given-names: ChiaAn
-    affiliation: "Master's Program in Precision Health and Intelligent Medicine, Graduate School of Advanced Technology, National Taiwan University"
+    affiliation: "Master Program for Health and Intelligent Medicine, National Taiwan University"
     email: ntuhibiki@gmail.com
 repository-code: "https://github.com/KiraIch/ddmtorch"
 doi: "10.5281/zenodo.23721071"
