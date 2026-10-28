@@ -256,4 +256,4 @@ If you use this code, please cite the technical report (details to be added afte
 
 ## License
 
-MIT. See `LICENSE`.
+The code is released under the MIT license (see `LICENSE`). The manuscript and figures are released under CC BY 4.0 (see `paper/LICENSE`).

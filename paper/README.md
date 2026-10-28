@@ -16,7 +16,7 @@ Before submitting to PsyArXiv:
 
 1. Confirm the official program name and affiliation formatting in the title-page footnote.
 2. Add the archived DOI (e.g., Zenodo). The public repository URL is already set to https://github.com/KiraIch/ddmtorch.
-3. Confirm the license (MIT for code; CC-BY 4.0 for the preprint is a common choice).
+3. License selected: CC BY 4.0 for the manuscript; MIT for the code.
 4. Re-run the experiments that produce the numbers in Tables 1–2, or verify that the committed `results/` match the paper.
 5. Check the reference list against the PDFs in `docs/literature/pdfs/` (especially the Fengler et al. published version, DOI `10.1162/jocn_a_01902`).
 6. Re-run `experiments/empirical_roitman.py`, `experiments/bootstrap_empirical.py`, and `experiments/empirical_rt_quantiles.py` if the empirical numbers change; the first script downloads the public Roitman & Shadlen (2002) data on first run.
