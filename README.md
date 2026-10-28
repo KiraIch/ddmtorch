@@ -202,12 +202,11 @@ tests/                 # correctness, gradients, recovery, MPS agreement
 experiments/           # recovery, Euler check, density validation, benchmarks, empirical application, figures
 data/                  # downloaded empirical data (not versioned)
 environment-pymc.yml   # separate PyMC 5 environment for the hierarchical comparison
-docs/
-  knowledge/           # Chinese knowledge notes (math, MLE, VI, MPS, strategy)
-  literature/          # PDFs, extracted text, Chinese reading guides, index
 paper/                 # LaTeX technical report, references, figures
 results/               # generated CSV/JSON/NPZ outputs
 ```
+
+Personal literature and knowledge notes are kept local and are not part of this public repository.
 
 ## Limitations
 
@@ -229,13 +228,15 @@ results/               # generated CSV/JSON/NPZ outputs
 
 ## Data
 
-The empirical example uses the public Roitman & Shadlen (2002) dataset, processed by the PyDDM project. The script downloads `roitman_rts.csv` from the PyDDM repository on first run; the data are not redistributed in this repository. Please cite Roitman & Shadlen (2002) if you use the dataset.
+The empirical examples use the public Roitman & Shadlen (2002) dataset (processed by the PyDDM project) and the Cavanagh et al. (2011) dataset distributed with the HDDM examples. The scripts download the processed CSVs on first run; the data are not redistributed in this repository. Please cite the original papers if you use the datasets.
 
 ## Documentation
 
-- [Knowledge notes (Chinese)](docs/knowledge/README.md)
-- [Literature index and reading paths](docs/literature/INDEX.md)
 - [Technical report source](paper/main.tex)
+- [Experiment scripts](experiments/)
+- [Generated results](results/README.md)
+
+Personal literature and knowledge notes are kept locally; they are not part of this public repository.
 
 ## Citation
 

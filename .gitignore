@@ -20,3 +20,7 @@ docs/literature/text/
 
 # Downloaded empirical data (the script fetches it on first run).
 data/
+
+# Personal study notes and internal review checklist (kept local, not public).
+docs/
+paper/REVIEW_CHECKLIST.md
