@@ -9,7 +9,7 @@ recovery:
 	$(PY) experiments/recovery.py --n-datasets 100 --n-trials 500
 
 euler:
-	PYTHONPATH=. $(PY) experiments/euler_recovery.py --n-datasets 20 --n-trials 500
+	PYTHONPATH=. $(PY) experiments/euler_recovery.py --n-datasets 100 --n-trials 500
 
 validate:
 	$(PY) experiments/validate_density.py
@@ -30,10 +30,10 @@ contaminant:
 	$(PY) experiments/contaminant_check.py
 
 hierarchical:
-	conda run -n pymc python experiments/hierarchical_pymc.py --subjects all --draws 1000 --tune 1000 --chains 4
+	conda run -n pymc python experiments/hierarchical_pymc.py --subjects all --draws 1000 --tune 1000 --chains 4 --seed 2026
 
 hier_compare:
-	$(PY) experiments/hierarchical_compare.py --n-restarts 2
+	$(PY) experiments/hierarchical_compare.py --n-restarts 2 --seed 0
 
 figures:
 	$(PY) experiments/make_figures.py

@@ -49,6 +49,9 @@ def main() -> None:
     )
     out = {
         "true": TRUE,
+        "seed": 0,
+        "contaminant_seed": 1,
+        "fit_seed": 2,
         "n_trials": int(len(rt)),
         "n_contaminants": n_cont,
         "contaminant_fraction": n_cont / len(rt),

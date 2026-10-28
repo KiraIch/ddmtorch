@@ -59,13 +59,30 @@ def main() -> None:
             "max_abs_log_error_including_extreme_tails": float(err.max()),
         }
 
+    small_mask = representable & ((tau / (a * a)) <= 0.8)
+    small48 = wfpt_logpdf(
+        t, v, a, w, t0, k_max=48, switch_thresh=float("inf")
+    )
+    small256 = wfpt_logpdf(
+        t, v, a, w, t0, k_max=256, switch_thresh=float("inf")
+    )
+    small_err = (small48 - small256).abs()[small_mask]
+
     out = {
         "n": n,
+        "seed": 123,
         "reference": "CPU float64, k_max=512",
         "analysis_rule": "tau >= 0.02 and reference log-density representable in float32",
         "cpu_float32": summarize(cpu32, "cpu_float32_k48"),
         "mps_float32": summarize(mps32, "mps_float32_k48"),
         "cpu_vs_mps_max_abs_log_error": float((cpu32.double() - mps32.double()).abs().max()),
+        "small_time_j_truncation": {
+            "n": int(small_mask.sum()),
+            "k_max_production": 48,
+            "k_max_reference": 256,
+            "max_abs_log_error": float(small_err.max()),
+            "mean_abs_log_error": float(small_err.mean()),
+        },
     }
     Path("results").mkdir(exist_ok=True)
     with open("results/density_validation.json", "w") as f:

@@ -121,6 +121,7 @@ def main() -> None:
         "n_grid": args.n_grid,
         "max_iter": args.max_iter,
         "fit_device": str(df["device"].iloc[0]),
+        "seed": args.seed,
         "success_rate": float(df["success"].mean()),
         "total_elapsed_s": time.perf_counter() - start_all,
         "mean_fit_elapsed_s": float(df["elapsed_s"].mean()),

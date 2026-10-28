@@ -100,7 +100,7 @@ All results below were generated on a MacBook Air with Apple M5, 24 GB unified m
 
 ### Density accuracy
 
-Compared with a CPU float64 reference (`k_max=512`), the production float32 implementation (`k_max=48`) had a maximum absolute log-density error of `3.51e-5` on CPU and `3.13e-5` on MPS, for 19,918 of 20,000 random parameter sets with `tau >= 0.02` and representable float32 densities. CPU float32 and MPS float32 agreed to `7.6e-6`. Extreme right-tail densities below the float32 range return a floor and should be checked with CPU float64.
+Compared with a CPU float64 reference (`k_max=512`), the production float32 implementation (`k_max=48`) had a maximum absolute log-density error of `3.51e-5` on CPU and `3.13e-5` on MPS, for 19,918 of 20,000 random parameter sets with `tau >= 0.02` and representable float32 densities. CPU float32 and MPS float32 agreed to `7.6e-6`. The series sum is clamped at the smallest positive float32 value before taking the log, so extreme right-tail densities below the float32 range are not resolved; use CPU float64 for those cases.
 
 ### Synthetic recovery
 
@@ -113,7 +113,7 @@ Compared with a CPU float64 reference (`k_max=512`), the production float32 impl
 | Start point `w` | 0.018 | 0.981 |
 | Non-decision `t0` | 0.007 | 0.998 |
 
-An independent Euler–Maruyama check (20 datasets, `dt=1e-3`) showed similar recovery, with a small positive bias in `v` (+0.026) and `a` (+0.024) consistent with boundary-crossing discretization.
+An independent Euler–Maruyama check (100 datasets, `dt=1e-3`) showed similar recovery, with a small positive bias in `a` (+0.033) and essentially no bias in `v` (+0.0004), `w` (+0.001), and `t0` (+0.002). The boundary bias is consistent with boundary-crossing discretization.
 
 ### Empirical application
 
@@ -122,15 +122,15 @@ We also fit the public Roitman & Shadlen (2002) motion-discrimination dataset (t
 | Monkey | Method | Drift slope | Boundary | Start | `t0` | NLL |
 |---|---:|---:|---:|---:|---:|---:|
 | 1 | ddmtorch | 10.494 | 1.489 | 0.488 | 0.307 | 204.30 |
-| 1 | PyDDM | 10.483 | 1.495 | 0.489 | 0.307 | 206.43 |
+| 1 | PyDDM | 10.536 | 1.486 | 0.483 | 0.309 | 206.66 |
 | 2 | ddmtorch | 9.495 | 1.749 | 0.501 | 0.193 | 1254.22 |
-| 2 | PyDDM | 9.408 | 1.746 | 0.510 | 0.197 | 1254.04 |
+| 2 | PyDDM | 9.602 | 1.754 | 0.494 | 0.194 | 1254.61 |
 
 The two implementations recover nearly identical parameters and similar likelihoods. The simple constant-bound model under-predicts accuracy at intermediate coherences and over-disperses RT quantiles; that is a property of the model, not of either implementation. See `paper/figures/empirical_psychometric.pdf` and `paper/figures/empirical_rt_quantiles.pdf`.
 
 ### Hierarchical comparison
 
-On the 14-subject Cavanagh et al. (2011) reward-based decision dataset, we compared per-subject `ddmtorch` MLE with a PyMC 5 HDDM-style hierarchical fit (subject-specific drift by condition, boundary, non-decision time; fixed `w=0.5`; 5% uniform contaminant). HDDM's PyPI release depends on PyMC 2, so this is a reimplementation of the model class, not the HDDM package. Correlations: `v_LL=0.997`, `v_WL=0.9995`, `v_WW=0.997`, `a=0.999`, `t0=0.996`; the hierarchical estimates show the expected shrinkage. See `paper/figures/hierarchical_comparison.pdf`.
+On the 14-subject Cavanagh et al. (2011) reward-based decision dataset, we compared per-subject `ddmtorch` MLE with a PyMC 5 HDDM-style hierarchical fit (subject-specific drift by condition, boundary, non-decision time; fixed `w=0.5`; 5% uniform contaminant). As of October 2026, HDDM 1.0.1 depends on PyMC 2, so this is a reimplementation of the model class, not the HDDM package. Correlations: `v_LL=0.997`, `v_WL=0.9995`, `v_WW=0.997`, `a=0.999`, `t0=0.996`; the hierarchical estimates show the expected shrinkage. See `paper/figures/hierarchical_comparison.pdf`.
 
 ### CPU vs MPS
 
@@ -155,7 +155,7 @@ python -m pytest -q
 python experiments/recovery.py --n-datasets 100 --n-trials 500
 
 # Independent Euler-Maruyama check
-python experiments/euler_recovery.py --n-datasets 20 --n-trials 500
+python experiments/euler_recovery.py --n-datasets 100 --n-trials 500
 
 # Density validation
 python experiments/validate_density.py
@@ -164,7 +164,7 @@ python experiments/validate_density.py
 python experiments/benchmark.py --max-n 1000000 --iters 5
 
 # Empirical application (downloads the public dataset on first run)
-python experiments/empirical_roitman.py
+python experiments/empirical_roitman.py --seed 0
 
 # Bootstrap confidence intervals (500 resamples per monkey)
 python experiments/bootstrap_empirical.py --n-boot 500
@@ -173,8 +173,8 @@ python experiments/bootstrap_empirical.py --n-boot 500
 python experiments/empirical_rt_quantiles.py
 
 # Hierarchical comparison (requires the separate `pymc` environment)
-conda run -n pymc python experiments/hierarchical_pymc.py --subjects all --draws 1000 --tune 1000 --chains 4
-python experiments/hierarchical_compare.py --n-restarts 2
+conda run -n pymc python experiments/hierarchical_pymc.py --subjects all --draws 1000 --tune 1000 --chains 4 --seed 2026
+python experiments/hierarchical_compare.py --n-restarts 2 --seed 0
 
 # Illustrative contaminant check
 python experiments/contaminant_check.py
@@ -193,6 +193,10 @@ make test
 make experiments
 make paper
 ```
+
+### Fixed seeds
+
+The scripts expose their seeds as command-line options and use these defaults: density validation `123`; recovery `2026` (dataset `i` uses `2026+i`); Euler check `77` (dataset `i` uses `77+i`); Roitman bootstrap `2026` (resample `b` uses `2026+b`); Roitman `ddmtorch`/PyDDM restart seed `0`; hierarchical PyMC `2026`; Cavanagh per-subject MLE restart seed `0`; density benchmark `1234`; MLE benchmark `11`; contaminant check `0`/`1`/`2`. The generated `results/` files record these values where applicable.
 
 ## Repository layout
 

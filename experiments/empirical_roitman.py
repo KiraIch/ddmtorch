@@ -161,7 +161,7 @@ def fit_ours(
     return best
 
 
-def fit_pyddm(df: pd.DataFrame, monkey: int) -> dict:
+def fit_pyddm(df: pd.DataFrame, monkey: int, *, seed: int = 0) -> dict:
     import pyddm
     from pyddm import Sample
     from pyddm.functions import get_model_loss
@@ -188,7 +188,7 @@ def fit_pyddm(df: pd.DataFrame, monkey: int) -> dict:
         conditions=["coh"],
     )
     start = time.perf_counter()
-    model.fit(sample=sample, verbose=False)
+    model.fit(sample=sample, verbose=False, fitparams={"seed": seed})
     elapsed = time.perf_counter() - start
     p = model.parameters()
     nll = float(get_model_loss(model, sample))
@@ -225,6 +225,7 @@ def main() -> None:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--max-iter", type=int, default=200)
     parser.add_argument("--restarts", type=int, default=3)
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
     df = load_data(Path(args.data))
@@ -240,10 +241,11 @@ def main() -> None:
             device=args.device,
             max_iter=args.max_iter,
             n_restarts=args.restarts,
+            seed=args.seed,
         )
         print("ddmtorch", {k: round(v, 4) if isinstance(v, float) else v for k, v in ours.items()}, flush=True)
 
-        pyddm_res = fit_pyddm(df, monkey)
+        pyddm_res = fit_pyddm(df, monkey, seed=args.seed)
         print(
             "PyDDM",
             {
@@ -271,6 +273,7 @@ def main() -> None:
                 "pyddm_nll": pyddm_res["nll"],
                 "pyddm_nll_per_trial": pyddm_res["nll_per_trial"],
                 "pyddm_elapsed_s": pyddm_res["elapsed_s"],
+                "seed": args.seed,
             }
         )
         obs = psychometric(pyddm_res["model"], d)

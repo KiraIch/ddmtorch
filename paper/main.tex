@@ -16,7 +16,7 @@
   pdftitle={ddmtorch: A Differentiable, MPS-Accelerated Toolbox for Drift-Diffusion Model Estimation on Apple Silicon},
   pdfauthor={ChiaAn Lin},
   pdfsubject={Technical report},
-  pdfkeywords={drift-diffusion model, Wiener first-passage time, maximum likelihood, hierarchical Bayesian, PyTorch, Apple Silicon, MPS, open-source software}
+  pdfkeywords={drift-diffusion model, Wiener first-passage time, maximum likelihood, hierarchical Bayesian, PyTorch, Apple Silicon, MPS, open-source software, response time, sequential sampling}
 }
 
 \lstset{
@@ -35,10 +35,10 @@
 \maketitle
 
 \begin{abstract}
-The drift-diffusion model (DDM) is a workhorse of cognitive psychology and cognitive neuroscience because it jointly explains choice probabilities and response-time (RT) distributions through a small set of interpretable parameters. Fitting a DDM, however, requires repeated evaluation of the Wiener first-passage time (WFPT) density, an infinite series that is expensive at the scale of modern multi-subject datasets. Existing tools are predominantly CPU-bound, rely on compiled C/C++ code, or are embedded in Bayesian sampling frameworks. We present \texttt{ddmtorch}, an open-source PyTorch \citep{Paszke2019} implementation that vectorizes the WFPT likelihood across trials and subjects, supports automatic differentiation, and runs on CPU and Apple Silicon Metal Performance Shaders (MPS). The package provides batched maximum-likelihood estimation, a hybrid large-time/small-time density following Navarro and Fuss (2009), synthetic data generators, a fixed-proportion contaminant mixture, and a reproducible recovery, empirical, and benchmark suite. On an Apple M5 MacBook Air with 24\,GB unified memory, the MPS backend evaluates a forward--backward pass over one million trials in 0.62\,s, compared with 1.22\,s for CPU float32 and 3.21\,s for CPU float64; a 50,000-trial, 20-subject MLE fit takes 2.32\,s on MPS versus 4.10\,s on CPU float32 and 7.30\,s on CPU float64. In 100 synthetic datasets with 500 trials each, the fitted parameters correlate with the generating values at $r=0.996$ ($v$), $0.995$ ($a$), $0.981$ ($w$), and $0.998$ ($t_0$). We also fit a public motion-discrimination dataset (Roitman \& Shadlen, 2002) and compare against PyDDM; the two implementations recover nearly identical parameters (monkey 1: drift slope 10.49 vs 10.48, boundary 1.49 vs 1.50, non-decision time 0.307 vs 0.307) and similar likelihoods.  The same fits illustrate how psychometric and RT-quantile diagnostics expose model misfit, motivating across-trial variability or collapsing bounds.  On a 14-subject reward-based decision dataset, ddmtorch MLE and a PyMC 5 HDDM-style hierarchical fit correlate at $r=0.996$--$0.9995$ across parameters, with the expected shrinkage in the hierarchical estimates. We position the toolbox as an engineering contribution rather than a new numerical approximation: the WFPT math is inherited from the literature, while the contribution is a differentiable, MPS-ready implementation and a transparent, reproducible evaluation. We discuss limitations---including the absence of built-in inter-trial variability, hierarchical priors, and posterior uncertainty---and outline a path toward variational and amortized inference.
+The drift-diffusion model (DDM) explains choice probabilities and response-time (RT) distributions through a small set of interpretable parameters, but fitting it requires repeated evaluation of the Wiener first-passage time (WFPT) density. Existing tools are predominantly CPU-bound, rely on compiled code, or are embedded in Bayesian sampling frameworks. We present \texttt{ddmtorch}, an open-source PyTorch \citep{Paszke2019} implementation that vectorizes the WFPT likelihood across trials and subjects, supports automatic differentiation, and runs on CPU and Apple Silicon Metal Performance Shaders (MPS). It provides batched maximum-likelihood estimation, a hybrid large-time/small-time density following Navarro and Fuss (2009), synthetic data generators, and a fixed-proportion contaminant mixture. On an Apple M5 MacBook Air, MPS evaluates a forward--backward pass over one million trials in 0.62\,s, versus 1.22\,s for CPU float32 and 3.21\,s for CPU float64; a 50,000-trial, 20-subject MLE fit takes 2.32\,s versus 4.10\,s and 7.30\,s. In 100 synthetic datasets with 500 trials each, parameter correlations ranged from 0.981 to 0.998. On a public motion-discrimination dataset, \texttt{ddmtorch} and PyDDM recovered nearly identical parameters; on a 14-subject dataset, \texttt{ddmtorch} MLE and a PyMC 5 HDDM-style hierarchical fit correlated at $r=0.996$--$0.9995$, with the expected shrinkage. The WFPT math is inherited from the literature; the contribution is a differentiable, MPS-ready implementation and a transparent evaluation. We document limitations, including the absence of inter-trial variability and hierarchical priors. Because MPS does not support float64, precision-sensitive workflows should use the CPU float64 path.
 \end{abstract}
 
-\noindent\textbf{Keywords:} drift-diffusion model; Wiener first-passage time; maximum likelihood; hierarchical Bayesian; PyTorch; Apple Silicon; MPS; open-source software; cognitive psychology; computational psychiatry
+\noindent\textbf{Keywords:} drift-diffusion model; Wiener first-passage time; maximum likelihood; hierarchical Bayesian; PyTorch; Apple Silicon; MPS; open-source software; cognitive psychology; response time; sequential sampling
 
 \section{Introduction}
 
@@ -46,7 +46,7 @@ Many perceptual, memory, and value-based decisions are well described by a seque
 
 The statistical appeal of the DDM comes with a computational cost. The WFPT density is an infinite series \citep{Feller1968,NavarroFuss2009}. Each likelihood evaluation therefore requires truncating the series, and a single MLE fit may require dozens to hundreds of evaluations over thousands of trials. Hierarchical Bayesian fitting multiplies this cost by the number of MCMC samples. The field has responded with efficient CPU implementations: \texttt{fast-dm} uses compiled code and multiple fitting criteria \citep{Voss2015}; \texttt{HDDM} provides hierarchical Bayesian estimation in Python via PyMC \citep{Wiecki2013}; \texttt{PyDDM}/\texttt{RTDL} solves the Fokker--Planck equation numerically for generalized models \citep{Shinn2020}; the R package \texttt{fddm} provides fast C++ densities and derivatives \citep{FosterSingmann2024}; and \texttt{HDDM} has been extended to collapsing bounds and reinforcement-learning models \citep{Fengler2022}. GPU acceleration has also been explored for bounded gradient-drift diffusion models \citep{Loossens2022}.
 
-To our knowledge, no widely used implementation combines a differentiable standard four-parameter DDM likelihood, native Apple Silicon execution, and batched multi-subject MLE. Many cognitive scientists work on Mac laptops without NVIDIA GPUs. PyTorch's MPS backend exposes the Apple GPU through Metal, but it does not support float64 and has different performance characteristics from CUDA: kernel-launch overhead dominates small workloads, while large batched tensor operations can be substantially faster than CPU. A toolbox that treats MPS as a first-class backend---and reports where it helps and where it does not---is therefore practically useful.
+Among the widely used, publicly maintained tools discussed above, we are not aware of one that combines a differentiable standard four-parameter DDM likelihood, native Apple Silicon execution, and batched multi-subject MLE as of October 2026. This is a qualitative survey of the tools discussed here, not an exhaustive review of every package. Many cognitive scientists work on Mac laptops without NVIDIA GPUs. PyTorch's MPS backend exposes the Apple GPU through Metal, but it does not support float64 and has different performance characteristics from CUDA: kernel-launch overhead dominates small workloads, while large batched tensor operations can be substantially faster than CPU. A toolbox that treats MPS as a first-class backend---and reports where it helps and where it does not---is therefore practically useful.
 
 This report makes four contributions:
 \begin{enumerate}
@@ -67,7 +67,7 @@ Let $X(t)$ denote the accumulated evidence at time $t$. The standard DDM assumes
   dX(t) = v\,dt + dW(t), \qquad X(0)=z=aw,
   \label{eq:sde}
 \end{equation}
-where $W(t)$ is a standard Wiener process, $v\in\mathbb{R}$ is the drift rate, $a>0$ is the distance between the lower boundary at $0$ and the upper boundary at $a$, and $w\in(0,1)$ is the relative starting point. The decision terminates at the first time $\tau$ at which $X(\tau)\in\{0,a\}$. The observed response time is $RT=\tau+t_0$, where $t_0\ge 0$ is non-decision time. A response is coded as $c=1$ for the upper boundary and $c=0$ for the lower boundary.
+where $W(t)$ is a standard Wiener process, $v\in\mathbb{R}$ is the drift rate, $a>0$ is the distance between the lower boundary at $0$ and the upper boundary at $a$, and $w\in(0,1)$ is the relative starting point. The decision terminates at the first time $\tau$ at which $X(\tau)\in\{0,a\}$. The observed response time is $RT=\tau+t_0$, where $t_0\ge 0$ is non-decision time. A response is coded as $c=1$ for the upper boundary and $c=0$ for the lower boundary. Because the diffusion coefficient is fixed at 1, $v$ is in evidence units per second, $a$ is in evidence units, and $t_0$ and $RT$ are in seconds.
 
 For $v\neq 0$, the probability of choosing the upper boundary is
 \begin{equation}
@@ -145,7 +145,7 @@ The public function \texttt{wfpt\_logpdf} accepts response times and parameters 
 \end{align}
 The sums are computed as tensor contractions over the series index, so the cost is linear in the number of trials and independent of the number of subjects at the level of the graph. Parameters are clamped to their mathematical domains only at the boundary; interior optima are unaffected. Trials with $RT\le t_0$ receive a large negative log density rather than a NaN.
 
-Two numerical details matter. First, the large-time and small-time sums are evaluated in float32 on MPS and float64 on CPU; PyTorch's MPS backend does not support float64. Second, the small-time series can underflow for extremely small $\tau/a^2$, where the true density is below the representable range of float32. In that regime the implementation returns a floor rather than a spurious value. Section~\ref{sec:density-validation} quantifies the resulting error.
+Two numerical details matter. First, the large-time and small-time sums are evaluated in float32 on MPS and float64 on CPU; PyTorch's MPS backend does not support float64. Second, the small-time series can underflow for extremely small $\tau/a^2$, where the true density is below the representable range of float32. The series sum is therefore clamped at \texttt{torch.finfo(dtype).tiny} (approximately $1.18\times10^{-38}$ for float32) before its logarithm is taken. This prevents \texttt{-inf} and bounds $\log(\text{sum})$ from below by $\log(\text{tiny})\approx-87.3$; the additive log multiplier can shift the resulting log density further. This is a numerical guard, not a model for the extreme tail. In the 20,000-case validation, only two reference densities fell below the float32 range. Section~\ref{sec:density-validation} quantifies the error for representable cases.
 
 \subsection{Likelihood and choice coding}
 
@@ -188,7 +188,9 @@ We optimize unconstrained parameters $(\tilde v,\tilde a,\tilde w,\tilde t_0)$ a
   t_0=t_{0,\max}\,\sigma(\tilde t_0),
   \label{eq:transforms}
 \end{equation}
-where $\sigma$ is the logistic function, $a_{\min}=0.05$, and $t_{0,\max}=0.999\min_i RT_i$ by default.  When a contaminant mixture is used, $t_{0,\max}$ can be set independently (0.6\,s in the empirical fits).  The last constraint guarantees $RT_i>t_0$ for every trial while allowing $t_0$ to approach the fastest response. It is a numerical device, not a theoretical claim about the non-decision time distribution.
+where $\sigma$ is the logistic function, $a_{\min}=0.05$ keeps the boundary separation strictly positive and well below plausible fitted values, and $t_{0,\max}=0.999\min_i RT_i$ by default.  When a contaminant mixture is used, $t_{0,\max}$ can be set independently; we fixed it at 0.6\,s in both empirical analyses to use a common bound across the two datasets.  This value was chosen before fitting and is not estimated; a sensitivity analysis over $t_{0,\max}$ is not reported.  The last constraint guarantees $RT_i>t_0$ for every trial while allowing $t_0$ to approach the fastest response. It is a numerical device, not a theoretical claim about the non-decision time distribution.
+
+The transformations are smooth bijections, so they keep the parameters in their domains without hard constraints during optimization. Near the upper bound the logistic derivative approaches zero, which can slow optimization when $t_0$ is close to $t_{0,\max}$; this is a known trade-off of the reparameterization. The hard clamps in the density are only a fallback for numerical overflow and are inactive at interior optima.
 
 The default optimizer is LBFGS with strong Wolfe line search \citep{NocedalWright2006}, which is well suited to a smooth, deterministic full-batch objective. If LBFGS raises a runtime error---for example, because a line search encounters a non-finite value---the implementation falls back to Adam. Multiple random restarts are supported but off by default. For $S$ subjects, the parameter tensor has shape $S\times 4$ and trial-level parameters are gathered by subject index, so all subjects are optimized jointly. This is a \emph{pooled independent-subject} MLE, not a hierarchical model: there is no shrinkage and no group-level distribution.
 
@@ -215,6 +217,8 @@ print(fit.params)   # columns: v, a, w, t0
 
 We generated 20,000 random parameter sets with $t_0\in[0.1,0.5]$, $\tau\in[0.005,3.0]$, $v\in[-2,2]$, $a\in[0.6,2.0]$, and $w\in[0.15,0.85]$. The reference was a CPU float64 evaluation with $k_{\max}=512$; the production implementation used $k_{\max}=48$ on CPU float32 and MPS float32. For the 19,918 cases with $\tau\ge0.02$ and a reference density representable in float32, the maximum absolute log-density error was $3.51\times10^{-5}$ on CPU float32 and $3.13\times10^{-5}$ on MPS; the corresponding mean absolute errors were $5.2\times10^{-7}$ and $6.3\times10^{-7}$. CPU float32 and MPS float32 agreed to $7.6\times10^{-6}$ in log density. Two of the 82 cases with $\tau<0.02$ also had reference densities below the float32 range; among the remaining representable cases in that group, the maximum error was $1.1\times10^{-4}$.
 
+We also checked the small-time truncation separately: in the 9,835 cases where the small-time expansion is used, increasing the sum from $j=-48,\ldots,48$ to $j=-256,\ldots,256$ produced no change at float64 precision (maximum absolute log-density error 0). This is expected because terms beyond $|j|=48$ underflow in the tested range. The truncation is therefore not a source of error here, although it should be rechecked if the parameter range is extended.
+
 This is sufficient for likelihood-based estimation in the tested range, but it is not a claim of float64-level accuracy. For publication-grade numerical work, or for data with responses extremely close to $t_0$, the CPU float64 backend should be used.
 
 \subsection{Synthetic parameter recovery}
@@ -223,7 +227,7 @@ We generated 100 datasets with 500 trials each. True parameters were drawn unifo
 
 \begin{table}[H]
 \centering
-\caption{Synthetic parameter recovery. Main study: 100 datasets $\times$ 500 trials, grid sampler, MPS fit. Independent check: 20 datasets $\times$ 500 trials, Euler--Maruyama sampler ($dt=10^{-3}$), MPS fit.}
+\caption{Synthetic parameter recovery. Main study: 100 datasets $\times$ 500 trials, grid sampler, MPS fit. Independent check: 100 datasets $\times$ 500 trials, Euler--Maruyama sampler ($dt=10^{-3}$), MPS fit.}
 \label{tab:recovery}
 \begin{tabular}{lcccccc}
 \toprule
@@ -232,9 +236,9 @@ We generated 100 datasets with 500 trials each. True parameters were drawn unifo
 Parameter & RMSE & $r$ & & RMSE & $r$ & \\
 \midrule
 Drift rate $v$ & 0.097 & 0.996 & & 0.101 & 0.997 & \\
-Boundary $a$ & 0.034 & 0.995 & & 0.044 & 0.993 & \\
-Start point $w$ & 0.018 & 0.981 & & 0.020 & 0.980 & \\
-Non-decision $t_0$ & 0.007 & 0.998 & & 0.007 & 0.999 & \\
+Boundary $a$ & 0.034 & 0.995 & & 0.049 & 0.995 & \\
+Start point $w$ & 0.018 & 0.981 & & 0.018 & 0.980 & \\
+Non-decision $t_0$ & 0.007 & 0.998 & & 0.007 & 0.998 & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -246,7 +250,7 @@ Non-decision $t_0$ & 0.007 & 0.998 & & 0.007 & 0.999 & \\
   \label{fig:recovery}
 \end{figure}
 
-The Euler--Maruyama check used $dt=10^{-3}$ and discarded unresolved trials (fewer than 0.2\% in practice). Recovery remained strong, but we observed a small positive bias in $v$ ($+0.026$) and $a$ ($+0.024$), consistent with boundary-crossing discretization. This check reduces, but does not eliminate, the concern that the main study is an inverse crime: the likelihood is still the same parametric model, and the Euler simulator is an approximation to that model.
+The Euler--Maruyama check used 100 datasets, $dt=10^{-3}$, and discarded unresolved trials (0.012\% in practice). Recovery remained strong, but we observed a small positive bias in $a$ ($+0.033$) and essentially no bias in $v$ ($+0.0004$), $w$ ($+0.001$), and $t_0$ ($+0.002$). The boundary bias is consistent with boundary-crossing discretization. This check reduces, but does not eliminate, the concern that the main study is an inverse crime: the likelihood is still the same parametric model, and the Euler simulator is an approximation to that model.
 
 \subsection{Empirical application: motion discrimination}
 \label{sec:empirical}
@@ -254,20 +258,24 @@ The Euler--Maruyama check used $dt=10^{-3}$ and discarded unresolved trials (few
 To check the implementation on real data, we used the public, processed \citet{Roitman2002} motion-discrimination dataset, which contains two monkeys, six motion-coherence levels (0 to 0.512), and 6,149 trials.  Following the PyDDM tutorial for this dataset, we removed responses faster than 100\,ms and slower than 1,650\,ms, leaving 2,611 trials for monkey 1 and 3,533 for monkey 2.  The model was a standard four-parameter DDM with drift proportional to coherence, $v_i=\beta\,\mathrm{coh}_i$, a constant boundary $a$, a free starting point $w$, and non-decision time $t_0$.  We added the fixed 2\% uniform contaminant of Equation~\eqref{eq:mixture} ($c_{\min}=0$, $c_{\max}=2$\,s) because the data contain fast responses that a no-mixture DDM in our implementation would be forced to absorb by placing $t_0$ below the fastest RT (about 0.1\,s).
 In a separate synthetic check (2,000 trials, 5\% uniform contaminants, true $t_0=0.32$\,s; see the repository for the script), the no-mixture fit was forced to $t_0=0.075$\,s and $a=1.72$, whereas the 5\% mixture recovered $t_0=0.314$\,s and $a=1.20$ (true $a=1.20$).  This check is illustrative rather than a full recovery study, but it shows why the mixture matters.
 
-We fitted each monkey separately with \texttt{ddmtorch} (MPS, LBFGS, three restarts) and with PyDDM 0.9.0 (CPU, Fokker--Planck solver, same model and mixture).  Table~\ref{tab:empirical} and Figure~\ref{fig:empirical} show the results.  The two implementations recovered nearly identical parameters.  For monkey 1, \texttt{ddmtorch} gave $\beta=10.49$, $a=1.49$, $w=0.488$, and $t_0=0.307$; PyDDM gave $\beta=10.48$, $a=1.50$, $w=0.489$, and $t_0=0.307$.  For monkey 2, the estimates were $\beta=9.49$, $a=1.75$, $w=0.501$, $t_0=0.193$ and $\beta=9.41$, $a=1.75$, $w=0.510$, $t_0=0.197$, respectively.  The total negative log likelihoods were also close: 204.30 versus 206.43 for monkey 1, and 1254.22 versus 1254.04 for monkey 2.  The small differences may reflect the different numerical routes (closed-form WFPT series versus a Fokker--Planck PDE), discretization settings, and mixture implementations; they are not evidence that one implementation is more correct.
+PyDDM parameterizes a symmetric bound as \([-B,B]\) and normalizes its starting-point parameter \(x_0\) to \([-1,1]\), with \(x_0=0\) unbiased.  We therefore convert \(a=2B\) and \(w=x_0/2+0.5\); no assumption that \(B=1\) is involved.
+
+We fitted each monkey separately with \texttt{ddmtorch} (MPS, LBFGS, three restarts) and with PyDDM 0.9.0 (CPU, Fokker--Planck solver, same model and mixture).  Table~\ref{tab:empirical} and Figure~\ref{fig:empirical} show the results.  The two implementations recovered nearly identical parameters.  For monkey 1, \texttt{ddmtorch} gave $\beta=10.49$, $a=1.49$, $w=0.488$, and $t_0=0.307$; PyDDM gave $\beta=10.54$, $a=1.49$, $w=0.483$, and $t_0=0.309$.  For monkey 2, the estimates were $\beta=9.49$, $a=1.75$, $w=0.501$, $t_0=0.193$ and $\beta=9.60$, $a=1.75$, $w=0.494$, $t_0=0.194$, respectively.  The total negative log likelihoods were also close: 204.30 versus 206.66 for monkey 1, and 1254.22 versus 1254.61 for monkey 2.  Both values are total negative log-likelihoods over trials under the same mixture model; PyDDM's default likelihood loss sums trial-level log densities.  The small differences may therefore reflect the different numerical routes (closed-form WFPT series versus a Fokker--Planck PDE), discretization settings, and mixture implementations; they are not evidence that one implementation is more correct.
+
+Because \texttt{ddmtorch} used three restarts while PyDDM used its default optimizer, the wall-clock times in Table~\ref{tab:empirical} are descriptive only and should not be read as a like-for-like speed comparison.
 
 \begin{table}[H]
 \centering
-\caption{Empirical application to the Roitman and Shadlen (2002) dataset.  The model is $v_i=\beta\,\mathrm{coh}_i$ with a constant boundary, free starting point, non-decision time, and a fixed 2\% uniform contaminant.  For PyDDM, $a=2B$ converts its symmetric bound to boundary separation, and $w=x_0/2+0.5$ converts its starting-point parameter.  Times are wall-clock for the full fitting procedure; \texttt{ddmtorch} used three restarts, PyDDM used its default optimizer.}
+\caption{Empirical application to the Roitman and Shadlen (2002) dataset.  The model is $v_i=\beta\,\mathrm{coh}_i$ with a constant boundary, free starting point, non-decision time, and a fixed 2\% uniform contaminant.  Units: $\beta$ in evidence/s, $a$ in evidence units, $w$ dimensionless, and $t_0$ in seconds.  For PyDDM, $a=2B$ converts its symmetric bound to boundary separation, and $w=x_0/2+0.5$, where PyDDM's \(x_0\) is normalized to \([-1,1]\).  Times are wall-clock for the full fitting procedure; \texttt{ddmtorch} used three restarts, PyDDM used its default optimizer, so timings are not directly comparable.}
 \label{tab:empirical}
 \begin{tabular}{llrrrrrr}
 \toprule
 Monkey & Method & $\beta$ & $a$ & $w$ & $t_0$ & Total NLL & Time (s) \\
 \midrule
-1 & \texttt{ddmtorch} & 10.494 & 1.489 & 0.488 & 0.307 & 204.30 & 3.01 \\
-1 & PyDDM & 10.483 & 1.495 & 0.489 & 0.307 & 206.43 & 3.22 \\
-2 & \texttt{ddmtorch} & 9.495 & 1.749 & 0.501 & 0.193 & 1254.22 & 1.09 \\
-2 & PyDDM & 9.408 & 1.746 & 0.510 & 0.197 & 1254.04 & 2.70 \\
+1 & \texttt{ddmtorch} & 10.494 & 1.489 & 0.488 & 0.307 & 204.30 & 2.65 \\
+1 & PyDDM & 10.536 & 1.486 & 0.483 & 0.309 & 206.66 & 3.92 \\
+2 & \texttt{ddmtorch} & 9.495 & 1.749 & 0.501 & 0.193 & 1254.22 & 1.50 \\
+2 & PyDDM & 9.602 & 1.754 & 0.494 & 0.194 & 1254.61 & 2.88 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -279,11 +287,11 @@ Monkey & Method & $\beta$ & $a$ & $w$ & $t_0$ & Total NLL & Time (s) \\
   \label{fig:empirical}
 \end{figure}
 
-Table~\ref{tab:bootstrap} reports 95\% percentile intervals from 500 trial-level bootstrap resamples per monkey.  Each resample was refitted with \texttt{ddmtorch}, initialized at the full-data estimate; PyDDM intervals were not bootstrapped.  The intervals are narrow because each monkey contributes thousands of trials, and they describe trial-level sampling variability, not between-subject variability.  They condition on the fixed 2\% contaminant probability and on the DDM being the true model; they do not represent model uncertainty.
+Table~\ref{tab:bootstrap} reports 95\% percentile intervals from 500 trial-level bootstrap resamples per monkey.  Each resample was refitted with \texttt{ddmtorch}, initialized at the full-data estimate; PyDDM intervals were not bootstrapped.  The intervals are narrow because each monkey contributes thousands of trials, and they describe trial-level sampling variability, not between-subject variability.  They condition on the fixed 2\% contaminant probability and on the DDM being the true model; they do not represent model uncertainty.  Trial-level resampling also assumes that trials are exchangeable within a monkey; if trials are correlated within sessions, these intervals may understate uncertainty.  The processed file does not include session labels, so a session-level bootstrap was not possible.
 
 \begin{table}[H]
 \centering
-\caption{Bootstrap percentile intervals for the \texttt{ddmtorch} empirical fits (500 resamples per monkey).  Intervals are trial-level nonparametric bootstrap percentile intervals.}
+\caption{Bootstrap percentile intervals for the \texttt{ddmtorch} empirical fits (500 resamples per monkey).  Intervals are trial-level nonparametric bootstrap percentile intervals.  $\beta$ is in evidence/s, $a$ in evidence units, and $t_0$ in seconds; $w$ is dimensionless.}
 \label{tab:bootstrap}
 \begin{tabular}{llrr}
 \toprule
@@ -315,15 +323,23 @@ The empirical application also exposes a substantive limitation.  Both toolboxes
 \subsection{Hierarchical comparison on a multi-subject dataset}
 \label{sec:hierarchical}
 
-The Roitman application is a single task with two monkeys, so it cannot assess hierarchical inference.  We therefore used the \citet{Cavanagh2011} reward-based decision dataset distributed with the HDDM examples.  It contains 14 subjects, three stimulus conditions (LL, WL, WW), and 3,988 trials; responses are coded as 0/1 and RTs range from 0.40 to 4.84\,s.  We fit an HDDM-style hierarchical DDM with subject-specific drift rates for the three conditions, subject-specific boundary and non-decision time, a fixed starting point $w=0.5$, and a fixed 5\% uniform contaminant (HDDM's default outlier probability).  The model used non-centered hierarchical priors and was fitted with PyMC 5 \citep{AbrilPla2023} and the nutpie NUTS backend.\footnote{\url{https://github.com/pymc-devs/nutpie}}  At the time of writing, HDDM's PyPI release depends on PyMC 2; we could not install it on Apple Silicon/macOS.  This is therefore an HDDM-style reimplementation of the model class, not a run of the HDDM package.
+The Roitman application is a single task with two monkeys, so it cannot assess hierarchical inference.  We therefore used the \citet{Cavanagh2011} reward-based decision dataset distributed with the HDDM examples.  It contains 14 subjects, three stimulus conditions (LL, WL, WW), and 3,988 trials; responses are coded as 0/1 and RTs range from 0.40 to 4.84\,s.  We fit an HDDM-style hierarchical DDM with subject-specific drift rates for the three conditions, subject-specific boundary and non-decision time, a fixed starting point $w=0.5$, and a fixed 5\% uniform contaminant (HDDM's default outlier probability).
 
-We drew 1,000 samples after 1,000 tuning samples in four chains.  The maximum R-hat was 1.005 and the minimum bulk effective sample size was 500; this is reasonably converged for the present comparison, though it remains a reimplementation rather than a definitive HDDM posterior.  We also fitted each subject separately with \texttt{ddmtorch} using the same model, five parameters per subject (three drift rates, boundary, non-decision time), two restarts, and the same 5\% contaminant; both fits bound the non-decision time at 0.6\,s.  Mean MLE time was 0.48\,s per subject.
+Let $s=1,\ldots,14$ index subjects and $c\in\{\mathrm{LL},\mathrm{WL},\mathrm{WW}\}\).  The non-centered priors were
+\begin{align}
+  v_{s,c} &= \mu_{v,c} + \sigma_{v,c}\tilde v_{s,c}, & \tilde v_{s,c} &\sim N(0,1), \label{eq:hier-v}\\
+  a_s &= \exp(\mu_{\log a} + \sigma_{\log a}\tilde a_s), & \tilde a_s &\sim N(0,1), \label{eq:hier-a}\\
+  t_{0,s} &= 0.6\,\operatorname{logistic}(\mu_{t_0}+\sigma_{t_0}\tilde t_{0,s}), & \tilde t_{0,s} &\sim N(0,1), \label{eq:hier-t0}
+\end{align}
+with $\mu_{v,c}\sim N(0,2)$, $\sigma_{v,c}\sim\mathrm{HalfNormal}(1)$, $\mu_{\log a}\sim N(\log 1.2,0.5)$, $\sigma_{\log a}\sim\mathrm{HalfNormal}(0.5)$, $\mu_{t_0}\sim N(0,1)$, and $\sigma_{t_0}\sim\mathrm{HalfNormal}(0.5)$.  The model was fitted with PyMC 5 \citep{AbrilPla2023} and the nutpie NUTS backend.\footnote{\url{https://github.com/pymc-devs/nutpie}}  As of October 2026, HDDM 1.0.1 (released December 2023) depends on PyMC 2, and we could not install it on Apple Silicon/macOS; we did not attempt a Linux or containerized installation.  This is therefore an HDDM-style reimplementation of the model class, not a run of the HDDM package.
+
+We drew 1,000 samples after 1,000 tuning samples in four chains.  The maximum R-hat was 1.005 and the minimum bulk effective sample size was 500; this is reasonably converged for the present comparison, though it remains a reimplementation rather than a definitive HDDM posterior.  We also fitted each subject separately with \texttt{ddmtorch} using the same model, five parameters per subject (three drift rates, boundary, non-decision time), two restarts, and the same 5\% contaminant; both fits bound the non-decision time at 0.6\,s.  Three of the 14 MLEs (subjects 7, 10, and 11) reached that bound, so the $t_0$ comparison should be read with this constraint in mind.  Mean MLE time was 0.48\,s per subject.
 
 Table~\ref{tab:hierarchical} and Figure~\ref{fig:hierarchical} show the agreement.  Across subjects, the correlations were $r=0.997$ ($v_{\mathrm{LL}}$), $0.9995$ ($v_{\mathrm{WL}}$), $0.997$ ($v_{\mathrm{WW}}$), $0.999$ ($a$), and $0.996$ ($t_0$); RMSEs were 0.065, 0.032, 0.074, 0.015, and 0.009, respectively.  The hierarchical estimates were less dispersed than the MLEs for $v_{\mathrm{LL}}$ (SD 0.161 vs 0.226), $v_{\mathrm{WW}}$ (0.233 vs 0.307), and $t_0$ (0.094 vs 0.097), consistent with shrinkage; $v_{\mathrm{WL}}$ showed modest shrinkage, and $a$ showed little.  This is the expected qualitative behavior when individual estimates are pulled toward a group distribution.
 
 \begin{table}[H]
 \centering
-\caption{Agreement between \texttt{ddmtorch} per-subject MLE and the PyMC 5 HDDM-style hierarchical fit on the 14-subject \citet{Cavanagh2011} dataset.  Correlations and RMSE are computed across the 14 subjects; for $v$, each row is a separate stimulus condition.  SD columns show the between-subject spread of the estimates.}
+\caption{Agreement between \texttt{ddmtorch} per-subject MLE and the PyMC 5 HDDM-style hierarchical fit on the 14-subject \citet{Cavanagh2011} dataset.  Correlations and RMSE are computed across the 14 subjects; for $v$, each row is a separate stimulus condition.  SD columns show the between-subject spread of the estimates.  Drift rates are in evidence/s, $a$ in evidence units, and $t_0$ in seconds.}
 \label{tab:hierarchical}
 \begin{tabular}{lrrrr}
 \toprule
@@ -341,11 +357,11 @@ $t_0$ & 0.996 & 0.009 & 0.097 & 0.094 \\
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.92\textwidth]{figures/hierarchical_comparison.pdf}
-  \caption{\texttt{ddmtorch} per-subject MLE versus PyMC 5 hierarchical posterior means for the 14-subject \citet{Cavanagh2011} dataset.  Left: drift rates by stimulus condition.  Middle: boundary.  Right: non-decision time.  Dashed lines are identity lines.  The drift panel pools the three conditions ($r=0.991$); the per-condition correlations in Table~\ref{tab:hierarchical} are $0.996$--$0.9995$.  The hierarchical estimates are slightly less dispersed, consistent with shrinkage.}
+  \caption{\texttt{ddmtorch} per-subject MLE versus PyMC 5 hierarchical posterior means for the 14-subject \citet{Cavanagh2011} dataset.  Left: drift rates by stimulus condition.  Middle: boundary.  Right: non-decision time.  Dashed lines are identity lines.  The drift panel pools the three conditions ($r=0.991$); the correlations in Table~\ref{tab:hierarchical} range from $0.996$ to $0.9995$.  The lower pooled correlation reflects the different drift ranges across conditions, not poorer estimation within conditions.  The hierarchical estimates are slightly less dispersed, consistent with shrinkage.}
   \label{fig:hierarchical}
 \end{figure}
 
-The comparison has clear limits.  It is a reimplementation, not a direct HDDM benchmark; the hierarchical model fixes $w=0.5$; and a longer MCMC run could refine the posterior.  It nevertheless shows that \texttt{ddmtorch}'s point estimates agree with a hierarchical Bayesian fit of the same model class, and that the differences are in the direction expected from shrinkage.  A direct comparison with the HDDM software, and a longer hierarchical run, remain future work.
+The pooled drift correlation in Figure~\ref{fig:hierarchical} is lower than the condition-specific correlations because the LL, WL, and WW conditions have different mean drift rates; pooling them adds between-condition variance and is not a measure of within-condition estimation quality.  The comparison has clear limits.  It is a reimplementation, not a direct HDDM benchmark; the hierarchical model fixes $w=0.5$; and a longer MCMC run could refine the posterior.  It nevertheless shows that \texttt{ddmtorch}'s point estimates agree with a hierarchical Bayesian fit of the same model class, and that the differences are in the direction expected from shrinkage.  A direct comparison with the HDDM software, and a longer hierarchical run, remain future work.
 
 \subsection{CPU and MPS benchmarks}
 \label{sec:benchmarks}
@@ -354,7 +370,7 @@ Benchmarks were run on a MacBook Air with an Apple M5 chip, 24\,GB unified memor
 
 \begin{table}[H]
 \centering
-\caption{Selected benchmarks. Density: forward + backward time for the WFPT likelihood. MLE: wall-clock time for a full fit. The 50k MLE used 20 subjects with 2,500 trials each. Dashes indicate conditions that were not benchmarked.}
+\caption{Selected benchmarks. Density: forward + backward time for the WFPT likelihood. MLE: wall-clock time for a full fit. The 50k MLE used 20 subjects with 2,500 trials each. Density timings were collected at 1k, 10k, 100k, and 1M trials (the 1k row is omitted for space); MLE timings at 2k, 10k, and 50k trials. Dashes indicate combinations that were not run.}
 \label{tab:bench}
 \begin{tabular}{lrrrrrr}
 \toprule
@@ -405,7 +421,7 @@ The recovery results suggest that the implementation is accurate enough for stan
 
 \textbf{Inference scope.} We provide point estimates from MLE, not posterior distributions.  The core API does not compute standard errors; for the empirical application we report bootstrap percentile intervals.  There is no hierarchical shrinkage or posterior uncertainty, and no model-comparison machinery. For many research questions---especially with few trials per subject---a hierarchical Bayesian model is preferable \citep{Wiecki2013,Vandekerckhove2011}. Variational inference is a promising middle ground \citep{Blei2017,Kucukelbir2017}, and amortized inference can make repeated inference nearly instantaneous \citep{Wu2026}, but neither is implemented here.
 
-\textbf{Numerical scope.} MPS runs in float32. The density is accurate in the tested range, but extreme right-tail values can underflow, and responses very close to $t_0$ should be checked with CPU float64. The $t_0$ constraint $t_0<0.999\min_i RT_i$ is a numerical device; when no mixture is used, it can bias $t_0$ downward if the fastest response is a contaminant.  The core API supports a fixed-proportion uniform contaminant, but the contaminant probability is not estimated.
+\textbf{Numerical scope.} MPS runs in float32. The density is accurate in the tested range, but extreme right-tail values can underflow, and responses very close to $t_0$ should be checked with CPU float64. The $t_0$ constraint $t_0<0.999\min_i RT_i$ is a numerical device; when no mixture is used, it can bias $t_0$ downward if the fastest response is a contaminant.  The empirical fits fix $t_{0,\max}=0.6$\,s before fitting; we did not run a sensitivity analysis over this bound, so estimates near 0.6\,s should be interpreted cautiously.  The core API supports a fixed-proportion uniform contaminant, but the contaminant probability is not estimated.
 
 \textbf{Evidence scope.} The recovery study is synthetic.  The Roitman application contains only two monkeys from one task, and the hierarchical comparison uses 14 subjects from a different task and a PyMC 5 reimplementation rather than the HDDM package.  We compared against PyDDM and the hierarchical reimplementation, but not against \texttt{HDDM} or \texttt{fast-dm}.  The hierarchical MCMC run used four chains with 1,000 draws (maximum R-hat 1.005, minimum bulk ESS 500); it is reasonably converged for the present comparison but remains a reimplementation, not a definitive HDDM benchmark.  The Euler--Maruyama check mitigates the inverse-crime concern but introduces its own discretization bias.  The benchmark is a single-machine comparison, not a general performance claim.  Recovery is also optimistic because the generating model is correctly specified and the simulated error rates are not extreme; parameter identifiability can be poor when error rates are low, especially with few trials \citep{Lucken2025}.
 
@@ -416,6 +432,8 @@ The most valuable next step is to add across-trial variability. One route is num
 \subsection{Reproducibility and availability}
 
 The repository contains the package, tests, experiment scripts, and the exact commands used to produce the tables and figures. The main environment is a Miniforge conda environment with Python 3.12 and PyTorch 2.14.1. The results in this report were generated on the machine described in Section~\ref{sec:benchmarks}.
+
+All stochastic experiments use fixed seeds exposed by the scripts. The density validation used seed 123; the main recovery study used 2026, with dataset $i$ generated and fitted using 2026+$i$; the Euler check used 77, with dataset $i$ using 77+$i$; the Roitman bootstrap used 2026, with resample $b$ fitted using 2026+$b$; and the hierarchical MCMC run used 2026. The Roitman fits used restart seed 0 for \texttt{ddmtorch} and seed 0 for PyDDM's differential-evolution optimizer; the Cavanagh per-subject fits used restart seed 0. The benchmark generator used 1234 for density timings and 11 for MLE timings. The script defaults are the source of truth, and the committed \texttt{results/} files record these seeds where applicable.
 
 \section{Conclusion}
 

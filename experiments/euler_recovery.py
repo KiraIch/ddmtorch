@@ -25,7 +25,7 @@ from experiments.recovery import recovery_metrics
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--n-datasets", type=int, default=20)
+    parser.add_argument("--n-datasets", type=int, default=100)
     parser.add_argument("--n-trials", type=int, default=500)
     parser.add_argument("--dt", type=float, default=1e-3)
     parser.add_argument("--max-time", type=float, default=5.0)
@@ -102,6 +102,7 @@ def main() -> None:
         "n_datasets": len(df),
         "n_trials_requested": args.n_trials,
         "dt": args.dt,
+        "seed": args.seed,
         "max_time": args.max_time,
         "total_elapsed_s": time.perf_counter() - start,
         "metrics": metrics,

@@ -1,7 +1,7 @@
 """HDDM-style hierarchical DDM in PyMC 5.
 
-The HDDM PyPI release currently depends on PyMC 2, which is not installable
-on Apple Silicon/macOS.  This script fits the same model class (hierarchical
+HDDM 1.0.1 depends on PyMC 2, which is not installable on Apple
+Silicon/macOS.  This script fits the same model class (hierarchical
 DDM with subject-specific drift-by-condition, boundary, and non-decision time)
 using PyMC 5.  It is explicitly a reimplementation, not the HDDM package.
 
@@ -103,9 +103,9 @@ def fit_hierarchical(
     df: pd.DataFrame,
     subjects: list[int],
     *,
-    draws: int = 800,
-    tune: int = 800,
-    chains: int = 2,
+    draws: int = 1000,
+    tune: int = 1000,
+    chains: int = 4,
     t0_max: float = 0.6,
     k_max: int = 24,
     p_contam: float = 0.05,
@@ -244,9 +244,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", default="data/cavanagh_theta_nn.csv")
     parser.add_argument("--subjects", default="all", help="'all' or comma-separated ids")
-    parser.add_argument("--draws", type=int, default=800)
-    parser.add_argument("--tune", type=int, default=800)
-    parser.add_argument("--chains", type=int, default=2)
+    parser.add_argument("--draws", type=int, default=1000)
+    parser.add_argument("--tune", type=int, default=1000)
+    parser.add_argument("--chains", type=int, default=4)
+    parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--out", default="results/hierarchical_cavanagh.json")
     args = parser.parse_args()
 
@@ -264,9 +265,21 @@ def main() -> None:
         draws=args.draws,
         tune=args.tune,
         chains=args.chains,
+        seed=args.seed,
     )
     out, sm = summarize(idata, d, subject_map, elapsed)
-    out["subjects"] = subjects
+    out.update(
+        {
+            "subjects": subjects,
+            "seed": args.seed,
+            "draws": args.draws,
+            "tune": args.tune,
+            "chains": args.chains,
+            "t0_max": 0.6,
+            "k_max": 24,
+            "p_contam": 0.05,
+        }
+    )
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:

@@ -124,11 +124,11 @@ def fit_subject(
             nll_total = float(-lp.sum())
         if best is None or nll_total < best["nll_total"]:
             best = {
-                "v_LL": float(v[0]),
-                "v_WL": float(v[1]),
-                "v_WW": float(v[2]),
-                "a": float(a),
-                "t0": float(t0),
+                "v_LL": float(v[0].detach()),
+                "v_WL": float(v[1].detach()),
+                "v_WW": float(v[2].detach()),
+                "a": float(a.detach()),
+                "t0": float(t0.detach()),
                 "nll_total": nll_total,
                 "nll_per_trial": nll_total / len(rt_t),
                 "restart": restart,
@@ -145,6 +145,7 @@ def main() -> None:
     parser.add_argument("--out", default="results/hierarchical_comparison.json")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--n-restarts", type=int, default=3)
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
     df = load_data(Path(args.data))
@@ -159,6 +160,7 @@ def main() -> None:
             d["stim"].map(stim_map).to_numpy(),
             device=args.device,
             n_restarts=args.n_restarts,
+            seed=args.seed,
         )
         rows.append({"subj_idx": int(subj), **res})
         print(
@@ -207,7 +209,11 @@ def main() -> None:
         "n_trials": int(len(df)),
         "comparisons": comparisons,
         "mle_mean_time_s": float(mle["elapsed_s"].mean()),
-        "seed": None,
+        "seed": args.seed,
+        "n_restarts": args.n_restarts,
+        "p_contam": 0.05,
+        "t0_max": 0.6,
+        "contam_max": 5.0,
     }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w") as f:

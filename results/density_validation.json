@@ -1,5 +1,6 @@
 {
   "n": 20000,
+  "seed": 123,
   "reference": "CPU float64, k_max=512",
   "analysis_rule": "tau >= 0.02 and reference log-density representable in float32",
   "cpu_float32": {
@@ -26,5 +27,12 @@
     "mean_rel_density_error": 6.34090641718018e-07,
     "max_abs_log_error_including_extreme_tails": 90.44829807670922
   },
-  "cpu_vs_mps_max_abs_log_error": 7.62939453125e-06
+  "cpu_vs_mps_max_abs_log_error": 7.62939453125e-06,
+  "small_time_j_truncation": {
+    "n": 9835,
+    "k_max_production": 48,
+    "k_max_reference": 256,
+    "max_abs_log_error": 0.0,
+    "mean_abs_log_error": 0.0
+  }
 }

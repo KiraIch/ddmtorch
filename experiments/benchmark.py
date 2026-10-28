@@ -66,6 +66,7 @@ def bench_density(
             "elapsed_s": elapsed,
             "trials_per_s": n / elapsed,
             "n_iter": iters,
+            "seed": 1234,
             "notes": "ok",
         }
     except (RuntimeError, MemoryError) as exc:
@@ -77,6 +78,7 @@ def bench_density(
             "elapsed_s": float("nan"),
             "trials_per_s": float("nan"),
             "n_iter": 0,
+            "seed": 1234,
             "notes": f"failed: {type(exc).__name__}: {exc}"[:250],
         }
 
@@ -131,6 +133,7 @@ def bench_mle(
             "elapsed_s": res.elapsed_s,
             "trials_per_s": rt.numel() / res.elapsed_s,
             "n_iter": res.n_iter,
+            "seed": seed,
             "notes": f"n_subjects={n_subjects}, success={res.success}",
         }
     except (RuntimeError, MemoryError) as exc:
@@ -142,6 +145,7 @@ def bench_mle(
             "elapsed_s": float("nan"),
             "trials_per_s": float("nan"),
             "n_iter": 0,
+            "seed": seed,
             "notes": f"failed: {type(exc).__name__}: {exc}"[:250],
         }
 
