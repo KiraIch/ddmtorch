@@ -13,6 +13,12 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage[switch]{lineno}
+\hypersetup{
+  pdftitle={ddmtorch: A Differentiable, MPS-Accelerated Toolbox for Drift-Diffusion Model Estimation on Apple Silicon},
+  pdfauthor={ChiaAn Lin},
+  pdfsubject={Technical report},
+  pdfkeywords={drift-diffusion model, Wiener first-passage time, maximum likelihood, hierarchical Bayesian, PyTorch, Apple Silicon, MPS, open-source software}
+}
 
 \lstset{
   basicstyle=\ttfamily\small,
@@ -23,7 +29,7 @@
 }
 
 \title{\textbf{ddmtorch: A Differentiable, MPS-Accelerated Toolbox for\\Drift-Diffusion Model Estimation on Apple Silicon}}
-\author{ChiaAn Lin\thanks{Affiliation and correspondence to be completed before submission.}}
+\author{ChiaAn Lin\thanks{Master's Program in Precision Health and Intelligent Medicine, Graduate School of Advanced Technology, National Taiwan University, Taipei, Taiwan. Correspondence: \href{mailto:ntuhibiki@gmail.com}{ntuhibiki@gmail.com}.}}
 \date{Technical report \textperiodcentered{} \today}
 
 \begin{document}
@@ -34,7 +40,7 @@
 The drift-diffusion model (DDM) is a workhorse of cognitive psychology and cognitive neuroscience because it jointly explains choice probabilities and response-time (RT) distributions through a small set of interpretable parameters. Fitting a DDM, however, requires repeated evaluation of the Wiener first-passage time (WFPT) density, an infinite series that is expensive at the scale of modern multi-subject datasets. Existing tools are predominantly CPU-bound, rely on compiled C/C++ code, or are embedded in Bayesian sampling frameworks. We present \texttt{ddmtorch}, an open-source PyTorch \citep{Paszke2019} implementation that vectorizes the WFPT likelihood across trials and subjects, supports automatic differentiation, and runs on CPU and Apple Silicon Metal Performance Shaders (MPS). The package provides batched maximum-likelihood estimation, a hybrid large-time/small-time density following Navarro and Fuss (2009), synthetic data generators, a fixed-proportion contaminant mixture, and a reproducible recovery, empirical, and benchmark suite. On an Apple M5 MacBook Air with 24\,GB unified memory, the MPS backend evaluates a forward--backward pass over one million trials in 0.62\,s, compared with 1.22\,s for CPU float32 and 3.21\,s for CPU float64; a 50,000-trial, 20-subject MLE fit takes 2.32\,s on MPS versus 4.10\,s on CPU float32 and 7.30\,s on CPU float64. In 100 synthetic datasets with 500 trials each, the fitted parameters correlate with the generating values at $r=0.996$ ($v$), $0.995$ ($a$), $0.981$ ($w$), and $0.998$ ($t_0$). We also fit a public motion-discrimination dataset (Roitman \& Shadlen, 2002) and compare against PyDDM; the two implementations recover nearly identical parameters (monkey 1: drift slope 10.49 vs 10.48, boundary 1.49 vs 1.50, non-decision time 0.307 vs 0.307) and similar likelihoods.  The same fits illustrate how psychometric and RT-quantile diagnostics expose model misfit, motivating across-trial variability or collapsing bounds.  On a 14-subject reward-based decision dataset, ddmtorch MLE and a PyMC 5 HDDM-style hierarchical fit correlate at $r=0.996$--$0.9995$ across parameters, with the expected shrinkage in the hierarchical estimates. We position the toolbox as an engineering contribution rather than a new numerical approximation: the WFPT math is inherited from the literature, while the contribution is a differentiable, MPS-ready implementation and an honest, reproducible evaluation. We discuss limitations---including the absence of built-in inter-trial variability, hierarchical priors, and posterior uncertainty---and outline a path toward variational and amortized inference.
 \end{abstract}
 
-\noindent\textbf{Keywords:} drift-diffusion model; Wiener first-passage time; maximum likelihood; PyTorch; Apple Silicon; MPS; cognitive psychology; computational psychiatry
+\noindent\textbf{Keywords:} drift-diffusion model; Wiener first-passage time; maximum likelihood; hierarchical Bayesian; PyTorch; Apple Silicon; MPS; open-source software; cognitive psychology; computational psychiatry
 
 \section{Introduction}
 
@@ -141,7 +147,7 @@ The public function \texttt{wfpt\_logpdf} accepts response times and parameters 
 \end{align}
 The sums are computed as tensor contractions over the series index, so the cost is linear in the number of trials and independent of the number of subjects at the level of the graph. Parameters are clamped to their mathematical domains only at the boundary; interior optima are unaffected. Trials with $RT\le t_0$ receive a large negative log density rather than a NaN.
 
-Two numerical details matter. First, the large-time and small-time sums are evaluated in float32 on MPS and float64 on CPU; MPS does not support float64. Second, the small-time series can underflow for extremely small $\tau/a^2$, where the true density is below the representable range of float32. In that regime the implementation returns a floor rather than a spurious value. Section~\ref{sec:density-validation} quantifies the resulting error.
+Two numerical details matter. First, the large-time and small-time sums are evaluated in float32 on MPS and float64 on CPU; PyTorch's MPS backend does not support float64. Second, the small-time series can underflow for extremely small $\tau/a^2$, where the true density is below the representable range of float32. In that regime the implementation returns a floor rather than a spurious value. Section~\ref{sec:density-validation} quantifies the resulting error.
 
 \subsection{Likelihood and choice coding}
 
@@ -184,7 +190,7 @@ We optimize unconstrained parameters $(\tilde v,\tilde a,\tilde w,\tilde t_0)$ a
   t_0=t_{0,\max}\,\sigma(\tilde t_0),
   \label{eq:transforms}
 \end{equation}
-where $\sigma$ is the logistic function, $a_{\min}=0.05$, and $t_{0,\max}=0.999\min_i RT_i$ within each subject. The last constraint guarantees $RT_i>t_0$ for every trial while allowing $t_0$ to approach the fastest response. It is a numerical device, not a theoretical claim about the non-decision time distribution.
+where $\sigma$ is the logistic function, $a_{\min}=0.05$, and $t_{0,\max}=0.999\min_i RT_i$ by default.  When a contaminant mixture is used, $t_{0,\max}$ can be set independently (0.6\,s in the empirical fits).  The last constraint guarantees $RT_i>t_0$ for every trial while allowing $t_0$ to approach the fastest response. It is a numerical device, not a theoretical claim about the non-decision time distribution.
 
 The default optimizer is LBFGS with strong Wolfe line search \citep{NocedalWright2006}, which is well suited to a smooth, deterministic full-batch objective. If LBFGS raises a runtime error---for example, because a line search encounters a non-finite value---the implementation falls back to Adam. Multiple random restarts are supported but off by default. For $S$ subjects, the parameter tensor has shape $S\times 4$ and trial-level parameters are gathered by subject index, so all subjects are optimized jointly. This is a \emph{pooled independent-subject} MLE, not a hierarchical model: there is no shrinkage and no group-level distribution.
 
@@ -311,7 +317,7 @@ The empirical application also exposes a substantive limitation.  Both toolboxes
 \subsection{Hierarchical comparison on a multi-subject dataset}
 \label{sec:hierarchical}
 
-The Roitman application is a single task with two monkeys, so it cannot assess hierarchical inference.  We therefore used the \citet{Cavanagh2011} reward-based decision dataset distributed with the HDDM examples.  It contains 14 subjects, three stimulus conditions (LL, WL, WW), and 3,988 trials; responses are coded as 0/1 and RTs range from 0.40 to 4.84\,s.  We fit an HDDM-style hierarchical DDM with subject-specific drift rates for the three conditions, subject-specific boundary and non-decision time, a fixed starting point $w=0.5$, and a fixed 5\% uniform contaminant (HDDM's default outlier probability).  The model used non-centered hierarchical priors and was fitted with PyMC 5 \citep{AbrilPla2023} and the nutpie NUTS backend.\footnote{\url{https://github.com/pymc-devs/nutpie}}  HDDM's current PyPI release depends on PyMC 2; we could not install it on Apple Silicon/macOS.  This is therefore an HDDM-style reimplementation of the model class, not a run of the HDDM package.
+The Roitman application is a single task with two monkeys, so it cannot assess hierarchical inference.  We therefore used the \citet{Cavanagh2011} reward-based decision dataset distributed with the HDDM examples.  It contains 14 subjects, three stimulus conditions (LL, WL, WW), and 3,988 trials; responses are coded as 0/1 and RTs range from 0.40 to 4.84\,s.  We fit an HDDM-style hierarchical DDM with subject-specific drift rates for the three conditions, subject-specific boundary and non-decision time, a fixed starting point $w=0.5$, and a fixed 5\% uniform contaminant (HDDM's default outlier probability).  The model used non-centered hierarchical priors and was fitted with PyMC 5 \citep{AbrilPla2023} and the nutpie NUTS backend.\footnote{\url{https://github.com/pymc-devs/nutpie}}  At the time of writing, HDDM's PyPI release depends on PyMC 2; we could not install it on Apple Silicon/macOS.  This is therefore an HDDM-style reimplementation of the model class, not a run of the HDDM package.
 
 We drew 1,000 samples after 1,000 tuning samples in four chains.  The maximum R-hat was 1.005 and the minimum bulk effective sample size was 500; this is reasonably converged for the present comparison, though it remains a reimplementation rather than a definitive HDDM posterior.  We also fitted each subject separately with \texttt{ddmtorch} using the same model, five parameters per subject (three drift rates, boundary, non-decision time), two restarts, and the same 5\% contaminant; both fits bound the non-decision time at 0.6\,s.  Mean MLE time was 0.48\,s per subject.
 
@@ -419,7 +425,7 @@ The repository contains the package, tests, experiment scripts, and the exact co
 
 \section*{Data and code availability}
 
-The code, tests, experiment scripts, and generated results accompany this manuscript.  The empirical analyses use the public Roitman and Shadlen (2002) dataset and the Cavanagh et al. (2011) dataset distributed with the HDDM examples; the analysis scripts download the processed CSVs on first run.  The code is released under the MIT license and is available at \url{https://github.com/KiraIch/DDM_MPS}.  An archived DOI will be added before submission.
+The code, tests, experiment scripts, and generated results accompany this manuscript.  The empirical analyses use the public Roitman and Shadlen (2002) dataset and the Cavanagh et al. (2011) dataset distributed with the HDDM examples; the analysis scripts download the processed CSVs on first run.  The code is released under the MIT license and is available at \url{https://github.com/KiraIch/ddmtorch}.  An archived DOI will be added before submission.
 
 \section*{Author contributions}
 

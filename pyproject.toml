@@ -35,6 +35,6 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [project.urls]
-Homepage = "https://github.com/KiraIch/DDM_MPS"
-Repository = "https://github.com/KiraIch/DDM_MPS"
-Issues = "https://github.com/KiraIch/DDM_MPS/issues"
+Homepage = "https://github.com/KiraIch/ddmtorch"
+Repository = "https://github.com/KiraIch/ddmtorch"
+Issues = "https://github.com/KiraIch/ddmtorch/issues"

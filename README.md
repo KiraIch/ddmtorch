@@ -1,6 +1,7 @@
 # ddmtorch
 
-**Repository:** <https://github.com/KiraIch/DDM_MPS>
+**Repository:** <https://github.com/KiraIch/ddmtorch>  
+**Technical report:** [paper/main.pdf](paper/main.pdf)
 
 A differentiable, PyTorch implementation of the drift-diffusion model (DDM) with first-class support for Apple Silicon MPS.
 

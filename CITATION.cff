@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "ddmtorch: A Differentiable, MPS-Accelerated Toolbox for Drift-Diffusion Model Estimation on Apple Silicon"
+type: software
+authors:
+  - family-names: Lin
+    given-names: ChiaAn
+    affiliation: "Master's Program in Precision Health and Intelligent Medicine, Graduate School of Advanced Technology, National Taiwan University"
+    email: ntuhibiki@gmail.com
+repository-code: "https://github.com/KiraIch/ddmtorch"
+license: MIT
+version: 0.1.0
+date-released: 2026-10-28
+keywords:
+  - drift-diffusion model
+  - Wiener first-passage time
+  - maximum likelihood
+  - hierarchical Bayesian
+  - PyTorch
+  - Apple Silicon
+  - MPS

@@ -10,12 +10,12 @@ tectonic -X compile main.tex
 
 This produces `main.pdf` and `main.log`; BibTeX is run automatically.  Line numbers are enabled with `\linenumbers` for review; remove that command for the final camera-ready/preprint version if you prefer unnumbered lines.
 
-Author: ChiaAn Lin.
+Author: ChiaAn Lin, Master's Program in Precision Health and Intelligent Medicine, Graduate School of Advanced Technology, National Taiwan University, Taipei, Taiwan. Correspondence: ntuhibiki@gmail.com.
 
 Before submitting to PsyArXiv:
 
-1. Replace the affiliation/correspondence footnote in `main.tex`.
-2. Add the archived DOI (e.g., Zenodo). The public repository URL is already set to https://github.com/KiraIch/DDM_MPS.
+1. Confirm the official program name and affiliation formatting in the title-page footnote.
+2. Add the archived DOI (e.g., Zenodo). The public repository URL is already set to https://github.com/KiraIch/ddmtorch.
 3. Confirm the license (MIT for code; CC-BY 4.0 for the preprint is a common choice).
 4. Re-run the experiments that produce the numbers in Tables 1–2, or verify that the committed `results/` match the paper.
 5. Check the reference list against the PDFs in `docs/literature/pdfs/` (especially the Fengler et al. published version, DOI `10.1162/jocn_a_01902`).
