@@ -15,7 +15,7 @@ Author: ChiaAn Lin, Master's Program in Precision Health and Intelligent Medicin
 Before submitting to PsyArXiv:
 
 1. Confirm the official program name and affiliation formatting in the title-page footnote.
-2. Add the archived DOI (e.g., Zenodo). The public repository URL is already set to https://github.com/KiraIch/ddmtorch.
+2. Archived code DOI is set: https://doi.org/10.5281/zenodo.23721071.
 3. License selected: CC BY 4.0 for the manuscript; MIT for the code.
 4. Re-run the experiments that produce the numbers in Tables 1–2, or verify that the committed `results/` match the paper.
 5. Check the reference list against the PDFs in `docs/literature/pdfs/` (especially the Fengler et al. published version, DOI `10.1162/jocn_a_01902`).

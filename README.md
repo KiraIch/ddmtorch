@@ -1,7 +1,10 @@
 # ddmtorch
 
 **Repository:** <https://github.com/KiraIch/ddmtorch>  
-**Technical report:** [paper/main.pdf](paper/main.pdf)
+**Technical report:** [paper/main.pdf](paper/main.pdf)  
+**Archived code DOI:** [10.5281/zenodo.23721071](https://doi.org/10.5281/zenodo.23721071)
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23721071.svg)](https://doi.org/10.5281/zenodo.23721071)
 
 A differentiable, PyTorch implementation of the drift-diffusion model (DDM) with first-class support for Apple Silicon MPS.
 
@@ -239,9 +242,18 @@ Personal literature and knowledge notes are kept locally; they are not part of t
 
 ## Citation
 
-If you use this code, please cite the technical report (details to be added after the PsyArXiv submission) and the underlying WFPT work:
+If you use this code, please cite the archived software release and the underlying WFPT work:
 
 ```bibtex
+@software{Lin2026ddmtorch,
+  author  = {Lin, ChiaAn},
+  title   = {ddmtorch: A Differentiable, MPS-Accelerated Toolbox for Drift-Diffusion Model Estimation on Apple Silicon},
+  year    = {2026},
+  version = {0.1.0},
+  doi     = {10.5281/zenodo.23721071},
+  url     = {https://github.com/KiraIch/ddmtorch}
+}
+
 @article{NavarroFuss2009,
   author  = {Navarro, Daniel J. and Fuss, Ian G.},
   title   = {Fast and accurate calculations for first-passage times in Wiener diffusion models},
